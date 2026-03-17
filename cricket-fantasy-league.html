@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fantasy Cricket League</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══════════════════════════════════════════════ -->
+<div id="topbar" style="display:none">
+  <div id="topbar-inner">
+    <button id="back-btn" onclick="navBack()" style="display:none">←</button>
+    <span style="font-size:22px">🏏</span>
+    <div>
+      <div id="page-title">Fantasy Cricket</div>
+      <div id="page-sub" style="display:none"></div>
+    </div>
+    <button onclick="openModal()" class="btn-points">View Scoring Rules</button>
+
+    <div id="rulesModal" class="modal-overlay">
+      <div class="modal-content">
+      
+      <div class="modal-header">
+      <h2>Cricket Fantasy Scoring Rules</h2>
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      </div>
+      
+      <div class="modal-body">
+      
+      <!-- ================= BATTTING ================= -->
+      
+      <section class="rules-section">
+      <h3>🏏 Batting Rules</h3>
+      
+      <table>
+      <thead>
+      <tr><th>Action</th><th>Points</th></tr>
+      </thead>
+      <tbody>
+      <tr><td>Run Scored</td><td>+1</td></tr>
+      <tr><td>Four</td><td>+1</td></tr>
+      <tr><td>Six</td><td>+2</td></tr>
+      <tr><td>Player Not Out</td><td>+10</td></tr>
+      <tr><td>Players who are out for a 0 </td><td>-10</td></tr>
+      <tr class="sub-header"><td colspan="2">Batting Milestones</td></tr>
+      
+      <tr><td>More than 25 Runs</td><td>+25</td></tr>
+      <tr><td>More than 50 Runs</td><td>+50</td></tr>
+      <tr><td>More than 75 Runs</td><td>+75</td></tr>
+      <tr><td>More than 100 Runs</td><td>+100</td></tr>
+      <tr><td>More than 125 Runs</td><td>+125</td></tr>
+      <tr><td>More than 150 Runs</td><td>+150</td></tr>
+      <tr><td>More than 200 Runs</td><td>+200</td></tr>
+      
+      </tbody>
+      </table>
+      
+      
+      <h4>Strike Rate Bonus <small>(Minimum 20 runs OR 10 balls faced)</small></h4>
+      
+      <table>
+      <tbody>
+      
+      <tr><td>SR &lt; 50</td><td class="neg">-60</td></tr>
+      <tr><td>SR &lt; 75</td><td class="neg">-40</td></tr>
+      <tr><td>SR &lt; 100</td><td class="neg">-20</td></tr>
+      <tr><td>SR &lt; 125</td><td class="neg">-10</td></tr>
+      
+      <tr><td>125 – 150</td><td>0</td></tr>
+      
+      <tr><td>150 – 175</td><td>+10</td></tr>
+      <tr><td>175 – 200</td><td>+20</td></tr>
+      <tr><td>200 – 250</td><td>+40</td></tr>
+      <tr><td>250 – 300</td><td>+60</td></tr>
+      
+      <tr><td>300+</td><td>+80</td></tr>
+      
+      </tbody>
+      </table>
+      
+      </section>
+      
+      <!-- ================= BOWLING ================= -->
+      
+      <section class="rules-section">
+      
+      <h3>⚾ Bowling Rules</h3>
+      
+      <table>
+      <thead>
+      <tr><th>Action</th><th>Points</th></tr>
+      </thead>
+      
+      <tbody>
+      
+      <tr><td>Every Wicket</td><td>+25</td></tr>
+      <tr><td>Bowled / LBW Bonus</td><td>+10</td></tr>
+      <tr><td>Dot Ball</td><td>+1</td></tr>
+      <tr><td>Wide / No Ball</td><td class="neg">-2</td></tr>
+      <tr><td>Maiden Over</td><td>+40</td></tr>
+      
+      <tr class="sub-header"><td colspan="2">Wicket Hauls</td></tr>
+      
+      <tr><td>3 Wickets</td><td>+50</td></tr>
+      <tr><td>4 Wickets</td><td>+75</td></tr>
+      <tr><td>5 Wickets</td><td>+100</td></tr>
+      <tr><td>6 Wickets</td><td>+125</td></tr>
+      <tr><td>7 Wickets</td><td>+150</td></tr>
+      <tr><td>8 Wickets</td><td>+175</td></tr>
+      
+      </tbody>
+      </table>
+      
+      
+      <h4>Bowling Economy <small>(Minimum 2 overs bowled)</small></h4>
+      
+      <table>
+      <tbody>
+      
+      <tr><td>Economy &lt; 1</td><td>+120</td></tr>
+      <tr><td>Economy &lt; 2</td><td>+80</td></tr>
+      <tr><td>Economy &lt; 4</td><td>+40</td></tr>
+      <tr><td>Economy &lt; 6</td><td>+20</td></tr>
+      <tr><td>Economy &lt; 8</td><td>+10</td></tr>
+      
+      <tr><td>Economy 8 – 10</td><td>0</td></tr>
+      
+      <tr><td>Economy &gt; 10</td><td class="neg">-10</td></tr>
+      <tr><td>Economy &gt; 12</td><td class="neg">-20</td></tr>
+      <tr><td>Economy &gt; 14</td><td class="neg">-40</td></tr>
+      <tr><td>Economy &gt; 16</td><td class="neg">-60</td></tr>
+      
+      </tbody>
+      </table>
+      
+      </section>
+      
+      <!-- ================= FIELDING ================= -->
+      
+      <section class="rules-section">
+      
+      <h3>🧤 Fielding</h3>
+      
+      <table>
+      <tbody>
+      
+      <tr><td>Catch</td><td>+10</td></tr>
+      <tr><td>Direct Run Out</td><td>+10</td></tr>
+      <tr><td>Stumping</td><td>+10</td></tr>
+      
+      </tbody>
+      </table>
+      
+      </section>
+      
+      <!-- ================= OTHER BONUS ================= -->
+      
+      <section class="rules-section">
+      
+      <h3>🎯 Other Bonus</h3>
+      
+      <table>
+      <tbody>
+      
+      <tr><td>Hat-trick</td><td>+100</td></tr>
+      <tr><td>Man of the Match</td><td>+100</td></tr>
+      <tr><td>6 Sixes in an Over</td><td>+100</td></tr>
+      <tr><td>6 Fours in an Over</td><td>+50</td></tr>
+      
+      </tbody>
+      </table>
+      
+      </section>
+      
+      <!-- ================= TOURNAMENT AWARDS ================= -->
+      
+      <section class="rules-section">
+      
+      <h3>🏆 Tournament Awards</h3>
+      
+      <table>
+      <tbody>
+      
+      <tr><td>Purple Cap</td><td>+200</td></tr>
+      <tr><td>Orange Cap</td><td>+200</td></tr>
+      <tr><td>Player of the Tournament</td><td>+200</td></tr>
+      <tr><td>Emerging Player of the Tournament</td><td>+200</td></tr>
+      
+      </tbody>
+      </table>
+      
+      </section>
+      
+      <!-- ================= MULTIPLIERS ================= -->
+      
+      <section class="rules-section multiplier">
+      
+      <h3>⭐ Multipliers</h3>
+      
+      <p><strong>Captain:</strong> 2x Points</p>
+      <p><strong>Vice Captain:</strong> 1.5x Points</p>
+      
+      </section>
+      
+      </div>
+      
+      <div class="modal-footer">
+      <button class="btn-close" onclick="closeModal()">Close</button>
+      </div>
+      
+      </div>
+      </div>
+    <div id="topbar-right">
+      <span id="api-badge" class="badge" style="display:none"></span>
+      <button id="logout-btn" class="btn btn-ghost" onclick="logout()" style="padding:6px 14px;font-size:12px;display:none">Logout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOGIN ════════════════════════════════════════════════ -->
+<div id="page-login" class="page active">
+  <div id="login-wrap">
+    <!-- orbs -->
+    <div class="orb" style="width:200px;height:200px;background:radial-gradient(circle,#38bdf807,transparent 70%);left:5%;top:10%"></div>
+    <div class="orb" style="width:350px;height:350px;background:radial-gradient(circle,#3b82f607,transparent 70%);left:60%;top:40%"></div>
+    <div class="orb" style="width:500px;height:500px;background:radial-gradient(circle,#38bdf807,transparent 70%);left:20%;top:60%"></div>
+
+    <div class="fu" style="width:100%;max-width:400px;position:relative;z-index:1">
+      <div class="ta-center mb-28" style="margin-bottom:36px">
+        <div style="font-size:56px;margin-bottom:10px">🏏</div>
+        <h1 style="font-size:26px;font-weight:900;color:var(--txt);letter-spacing:3px">FANTASY CRICKET</h1>
+        <div style="font-size:11px;color:var(--acc);letter-spacing:5px;margin-top:4px;font-weight:700">LEAGUE PLATFORM</div>
+      </div>
+
+      <div id="login-choose" class="flex flex-col gap-14">
+        <button class="btn btn-primary" style="padding:16px;font-size:15px;border-radius:14px" onclick="playerLogin()">👤 &nbsp; Player Login</button>
+        <button class="btn btn-ghost" style="padding:16px;font-size:15px;border-radius:14px" onclick="showAdminForm()">🔐 &nbsp; Admin Login</button>
+      </div>
+
+      <div id="login-form" style="display:none">
+        <div class="card fu">
+          <div class="lbl">🔐 Admin Login</div>
+          <div class="flex flex-col gap-12" style="margin-top:12px">
+            <input id="login-pass" class="inp" type="password" placeholder="Admin Password" onkeydown="if(event.key==='Enter')doAdminLogin()"/>
+            <div id="login-err" style="color:var(--err);font-size:12px;display:none"></div>
+            <div class="flex gap-10">
+              <button class="btn btn-primary flex-1" onclick="doAdminLogin()">Login →</button>
+              <button class="btn btn-ghost" onclick="backToChoose()">Back</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ USER HOME ═════════════════════════════════════════════ -->
+<div id="page-user-home" class="page">
+  <div class="wrap">
+    <div id="user-tournaments-grid" class="grid-cards fu"></div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN HOME ════════════════════════════════════════════ -->
+<div id="page-admin-home" class="page">
+  <div class="wrap">
+    <div class="flex items-center jc-between mb-28">
+      <h2 style="font-size:20px;font-weight:800">Tournaments</h2>
+      <button class="btn btn-primary" onclick="goNewTournament()">+ New Tournament</button>
+    </div>
+    <div id="admin-tournaments-grid" class="grid-cards fu"></div>
+  </div>
+</div>
+
+<!-- ═══ NEW TOURNAMENT WIZARD ═════════════════════════════════ -->
+<div id="page-new-tournament" class="page">
+  <div class="wrap">
+
+    <!-- Step pills -->
+    <div class="flex items-center gap-10 mb-28" style="flex-wrap:wrap">
+      <div class="badge" style="background:linear-gradient(135deg,#38bdf8,#3b82f6);color:#fff;padding:5px 16px;font-size:12px">1 Details</div>
+      <div style="width:20px;height:1px;background:var(--bdr)"></div>
+      <div class="badge" style="background:linear-gradient(135deg,#38bdf8,#3b82f6);color:#fff;padding:5px 16px;font-size:12px">2 Upload Excel</div>
+      <div style="width:20px;height:1px;background:var(--bdr)"></div>
+      <div class="badge" style="background:linear-gradient(135deg,#38bdf8,#3b82f6);color:#fff;padding:5px 16px;font-size:12px">3 Review</div>
+    </div>
+
+    <!-- Step 1: Details -->
+    <div class="card mb-20">
+      <div class="lbl">Step 1 — Tournament Details</div>
+      <div class="flex flex-col gap-12 mt-10">
+        <div>
+          <div class="fs-12 txt-dim mb-8">Tournament Name <span style="color:var(--err)">*</span></div>
+          <input id="wiz-name" class="inp" placeholder="e.g. IPL Fantasy 2025 — Office League"/>
+        </div>
+        <div>
+          <div class="fs-12 txt-dim mb-8">Series ID <span style="color:var(--err)">*</span> <span class="txt-dim fs-11">— from CricAPI series URL</span></div>
+          <input id="wiz-sid" class="inp" placeholder="e.g. 0cdf6736-ad9b-4e95-a647-5ee3a99c5510" required/>
+          <div class="fs-11 txt-dim" style="margin-top:6px">Find at: cricapi.com/product/series → copy the series ID from the URL</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Upload -->
+    <div class="card mb-20" id="wiz-upload-card" style="border:2px dashed var(--bdra);background:rgba(56,189,248,0.03)">
+      <div class="lbl txt-acc">Step 2 — Upload Teams Excel Sheet</div>
+      <div id="wiz-upload-msg" class="alert alert-err mb-16" style="display:none;white-space:pre-line"></div>
+
+      <div class="dropzone" id="wiz-dropzone" onclick="document.getElementById('wiz-file').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="event.preventDefault();this.classList.remove('drag');handleWizDrop(event)">
+        <div style="font-size:44px;margin-bottom:12px">📊</div>
+        <div class="fw-800 fs-17 txt-main mb-8">Drop your Excel file here</div>
+        <div class="txt-dim fs-13" style="line-height:1.8">
+          or <span class="txt-acc" style="text-decoration:underline">click to browse</span><br>
+          <span class="fs-11">Each <strong class="txt-main">sheet tab = one team</strong> · Each row = one player name</span>
+        </div>
+        <div class="flex gap-10" style="justify-content:center;margin-top:14px">
+          <span class="badge" style="background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.4);color:var(--acc)">xlsx</span>
+          <span class="badge" style="background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.4);color:var(--acc)">xls</span>
+          <span class="badge" style="background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.4);color:var(--acc)">csv</span>
+        </div>
+        <input type="file" id="wiz-file" accept=".xlsx,.xls,.csv" onchange="handleWizFile(this)"/>
+      </div>
+
+      <div class="flex gap-12 mt-10" style="margin-top:12px">
+        <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:12px;flex:1">
+          <div style="color:var(--acc);font-weight:700;font-size:11px;margin-bottom:6px">✅ FORMAT A (recommended)</div>
+          <div class="txt-dim fs-12" style="line-height:1.8">Sheet tab name = Team<br>Column A = player names<br><code style="color:var(--warn);font-size:10px">Tab "Team Shakti" → Virat Kohli...</code></div>
+        </div>
+        <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:12px;flex:1">
+          <div style="color:var(--ok);font-weight:700;font-size:11px;margin-bottom:6px">✅ FORMAT B</div>
+          <div class="txt-dim fs-12" style="line-height:1.8">Single sheet, 2 columns:<br><code style="color:var(--warn);font-size:10px">Team | Player</code><br>One row per player</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parse success banner -->
+    <div id="wiz-parsed-banner" class="alert alert-ok mb-16" style="display:none"></div>
+
+    <div class="flex gap-12 items-center">
+      <button class="btn btn-ghost" onclick="goPage('admin-home')">Cancel</button>
+      <div id="wiz-next-hint" class="txt-dim fs-13" style="margin-left:8px">⬆️ Upload Excel above to continue</div>
+      <button id="wiz-next-btn" class="btn btn-success" onclick="wizNext()" style="display:none">Review Teams →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ NAME RESOLUTION ═══════════════════════════════════════ -->
+<div id="page-resolve" class="page">
+  <div class="wrap">
+    <div class="alert alert-warn mb-24">
+      <div class="fw-700 fs-15">⚠️ Some player names need confirmation</div>
+      <div class="fs-12 mt-10">We found possible typos or uncommon spellings. Select the correct name or keep the original.</div>
+    </div>
+    <div id="resolve-items"></div>
+    <div class="flex gap-12" style="margin-top:16px">
+      <button id="resolve-confirm-btn" class="btn btn-success" onclick="resolveConfirm()" disabled>Confirm Names → Preview</button>
+      <button class="btn btn-ghost" onclick="resolveSkip()">Skip — keep all originals</button>
+    </div>
+    <div id="resolve-hint" class="txt-dim fs-12" style="margin-top:10px">Select an option for every name above.</div>
+  </div>
+</div>
+
+<!-- ═══ PREVIEW ═══════════════════════════════════════════════ -->
+<div id="page-preview" class="page">
+  <div class="wrap">
+    <div id="preview-summary" class="alert alert-acc mb-24 flex gap-20" style="flex-wrap:wrap"></div>
+    <div id="preview-teams" class="grid-cards mb-24"></div>
+    <div id="preview-no-name-warn" class="alert alert-err mb-16" style="display:none">⚠️ Go back and enter a tournament name first.</div>
+    <div class="flex gap-12">
+      <button id="preview-create-btn" class="btn btn-success" style="padding:12px 32px;font-size:15px" onclick="createTournament()">🎉 Create Tournament</button>
+      <button class="btn btn-ghost" onclick="goPage('new-tournament')">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TOURNAMENT VIEW ════════════════════════════════════════ -->
+<div id="page-tournament" class="page">
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-btn-leaderboard" onclick="switchTab('leaderboard')">🏆 Leaderboard</button>
+      <button class="tab-btn" id="tab-btn-matches" onclick="switchTab('matches')">🏏 Matches</button>
+      <button class="tab-btn" id="tab-btn-manage" onclick="switchTab('manage')" style="display:none">⚙️ Manage</button>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="tab-leaderboard" class="fu">
+
+      <div class="leaderboard-grid">
+        <div class="card">
+          <div class="lbl">Team Standings</div>
+          <div id="standings-list"></div>
+        </div>
+
+        <div id="top-performers" class="card" style="border:1px solid rgba(251,191,36,.25);display:none">
+          <div class="lbl" style="color:var(--warn)">🌟 Top Performers</div>
+          <div id="top-performers-list" style="margin-top:12px"></div>
+        </div>
+    
+      </div>
+    
+    </div>
+
+    <!-- Matches -->
+    <div id="tab-matches" style="display:none" class="fu">
+      <div id="matches-content"></div>
+    </div>
+
+    <!-- Manage -->
+    <div id="tab-manage" style="display:none" class="fu">
+      <div class="flex gap-4 mb-24" style="background:rgba(255,255,255,0.04);border-radius:10px;padding:4px">
+        <button class="tab-btn active" id="sub-btn-upload" onclick="switchSubTab('upload')" style="flex:1">📤 Upload More Teams</button>
+        <button class="tab-btn" id="sub-btn-scores" onclick="switchSubTab('scores')" style="flex:1">🏏 Fetch Scores</button>
+        <button class="tab-btn" id="sub-btn-captain" onclick="switchSubTab('captain')" style="flex:1">⭐ Captain</button>
+        <button class="tab-btn" id="sub-btn-injury" onclick="switchSubTab('injury')" style="flex:1">🩹 Injury</button>
+        <button class="tab-btn" id="sub-btn-manual" onclick="switchSubTab('manual')" style="flex:1">🎯 Manual Points</button>
+      </div>
+      <div id="sub-upload"></div>
+      <div id="sub-scores" style="display:none"></div>
+      <div id="sub-captain" style="display:none"></div>
+      <div id="sub-injury" style="display:none"></div>
+      <div id="sub-manual" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script src="index.js"></script>
+</body>
+</html>
