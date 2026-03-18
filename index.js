@@ -8,9 +8,9 @@ const API_BASE = 'api/';
 // Use different keys for different purposes to spread the 100 hits/day limit.
 // Admin can update these inside the app (Manage → Fetch Scores → API Keys).
 const API_KEYS = {
-  series:    localStorage.getItem('cric_key_series')    || "813aaa00-d400-4d56-bca6-278761ed77fb",
-  scorecard: localStorage.getItem('cric_key_scorecard') || "813aaa00-d400-4d56-bca6-278761ed77fb",
-  players:   localStorage.getItem('cric_key_players')   || "813aaa00-d400-4d56-bca6-278761ed77fb",
+  series:    localStorage.getItem('cric_key_series')    || "28147e70-c944-44b9-9aa1-b273d0daafd1",
+  scorecard: localStorage.getItem('cric_key_scorecard') || "28147e70-c944-44b9-9aa1-b273d0daafd1",
+  players:   localStorage.getItem('cric_key_players')   || "28147e70-c944-44b9-9aa1-b273d0daafd1",
 };
 function saveApiKeys(){ Object.entries(API_KEYS).forEach(([k,v])=>localStorage.setItem('cric_key_'+k,v)); }
 
@@ -412,13 +412,12 @@ function getTournament() {
   return state.tournaments.find(t => t.id === state.tId);
 }
 
-function updateTournament(updated) {
+function updateTournament(updated, silent = false) {
 
   state.tournaments = state.tournaments.map(t =>
     t.id === updated.id ? updated : t
   );
 
-  // Try to persist to server, fallback to localStorage
   (async()=>{
     try{
       await apiUpdateTournament(updated);
@@ -427,11 +426,10 @@ function updateTournament(updated) {
     }
   })();
 
-  // re-render UI
-  if(state.page === 'tournament') {
+  // ❌ DON'T re-render if silent
+  if(!silent && state.page === 'tournament' && !state.matchDetailOpen) {
     renderTournamentContent();
   }
-
 }
 
 function updateApiBadge() {
@@ -1174,97 +1172,131 @@ function renderLeaderboard(t) {
   }
 
   // Standings
-  const standList = document.getElementById('standings-list');
-  if(!ranked.length){ standList.innerHTML='<div class="txt-dim ta-center" style="padding:30px">No teams yet</div>'; return; }
-  standList.innerHTML = '';
-  const leaderPoints = ranked[0]?.total || 0;
+  // Standings
+const standList = document.getElementById('standings-list');
+if(!ranked.length){
+  standList.innerHTML='<div class="txt-dim ta-center" style="padding:30px">No teams yet</div>';
+  return;
+}
+standList.innerHTML = '';
 
-  ranked.forEach((team,i) => {
-    const isLeader  = i === 0;
-    const diff      = leaderPoints - (team.total||0);
-    const rankColor = isLeader ? '#10b981' : '#f87171';
-    const statusLbl = isLeader
-      ? '🟢 Leader'
-      : `🔴 ${diff % 1 === 0 ? diff : diff.toFixed(1)} pts behind`;
-    const ownerTag  = team.owner && norm(team.owner)!==norm(team.name)
-      ? `<span style="color:var(--acc)">👤 ${escHtml(team.owner)}</span>` : '';
-    const displayTotal = (team.total||0) % 1 === 0 ? (team.total||0) : (team.total||0).toFixed(1);
+// 🔥 NEW: track previous team points
+let prevPoints = null;
 
-    const row = document.createElement('div');
-    row.className = 'team-row';
-    row.innerHTML = `
-      <span style="width:32px;text-align:center;font-size:18px;font-weight:900;color:${['var(--gold)','var(--silver)','var(--bronze)'][i]||'var(--dim)'}">
-        ${['🥇','🥈','🥉'][i]||i+1}
-      </span>
-      <div class="flex-1">
-        <div class="fw-800 txt-main" style="font-size:16px">${escHtml(team.name)}</div>
-        <div style="margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:700;color:${rankColor}">${statusLbl}</span>
-          ${ownerTag ? `<span class="fs-11">${ownerTag}</span>` : ''}
-        </div>
+ranked.forEach((team,i) => {
+  const isLeader  = i === 0;
+
+  // 🔥 NEW DIFF LOGIC
+  let diff = 0;
+  if(i !== 0){
+    diff = prevPoints - (team.total || 0);
+  }
+  prevPoints = team.total || 0;
+
+  const rankColor = isLeader ? '#10b981' : '#f87171';
+
+  const statusLbl = isLeader
+    ? '🟢 Leader'
+    : `🔴 ${diff % 1 === 0 ? diff : diff.toFixed(1)} pts behind`;
+
+  const ownerTag  = team.owner && norm(team.owner)!==norm(team.name)
+    ? `<span style="color:var(--acc)">👤 ${escHtml(team.owner)}</span>` : '';
+
+  const displayTotal = (team.total||0) % 1 === 0
+    ? (team.total||0)
+    : (team.total||0).toFixed(1);
+
+  const row = document.createElement('div');
+  row.className = 'team-row';
+  row.innerHTML = `
+    <span style="width:32px;text-align:center;font-size:18px;font-weight:900;color:${['var(--gold)','var(--silver)','var(--bronze)'][i]||'var(--dim)'}">
+      ${['🥇','🥈','🥉'][i]||i+1}
+    </span>
+    <div class="flex-1">
+      <div class="fw-800 txt-main" style="font-size:16px">${escHtml(team.name)}</div>
+      <div style="margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:${rankColor}">${statusLbl}</span>
+        ${ownerTag ? `<span class="fs-11">${ownerTag}</span>` : ''}
       </div>
-      <div class="ta-right" style="margin-right:10px">
-        <div style="font-size:22px;font-weight:800;color:${rankColor}">${displayTotal}</div>
-        <div class="fs-10 txt-dim">TOTAL PTS</div>
-      </div>
-      <span class="txt-dim fs-13" id="arrow-${i}">▼</span>
-    `;
+    </div>
+    <div class="ta-right" style="margin-right:10px">
+      <div style="font-size:22px;font-weight:800;color:${rankColor}">${displayTotal}</div>
+      <div class="fs-10 txt-dim">TOTAL PTS</div>
+    </div>
+    <span class="txt-dim fs-13" id="arrow-${i}">▼</span>
+  `;
 
-    // ── Expanded: group players by national cricket team ──
-    const detail = document.createElement('div');
-    detail.style.cssText = 'display:none;padding:0 0 14px 46px';
+  // ── Expanded: group players by national cricket team ──
+  const detail = document.createElement('div');
+  detail.style.cssText = 'display:none;padding:0 0 14px 46px';
 
-    const groupMap = {};
-    (team.players||[]).forEach(p => {
-      const nat = p.cricketTeam || p.country || '—';
-      if(!groupMap[nat]) groupMap[nat] = [];
-      groupMap[nat].push(p);
-    });
-    const groupKeys = Object.keys(groupMap).sort((a,b) => {
-      if(a==='—') return 1; if(b==='—') return -1;
-      return a.localeCompare(b);
-    });
-    groupKeys.forEach(g => groupMap[g].sort((a,b) => playerTotalWithCap(b)-playerTotalWithCap(a)));
+  const groupMap = {};
+  (team.players||[]).forEach(p => {
+    const nat = p.cricketTeam || p.country || '—';
+    if(!groupMap[nat]) groupMap[nat] = [];
+    groupMap[nat].push(p);
+  });
 
-    detail.innerHTML = groupKeys.map(nat => {
-      const natLabel = nat === '—' ? 'Other / Unknown' : nat;
-      const playerRows = groupMap[nat].map(p => {
-        const badge = captainBadge(p.id);
-        const badgePill = badge
-          ? `<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;margin-right:5px;${badge==='C'?'background:rgba(251,191,36,.2);color:#fbbf24':'background:rgba(139,92,246,.2);color:#a78bfa'}">${badge}</span>`
-          : '';
-        const pPts = playerTotalWithCap(p);
-        return `
-          <div class="player-row" style="${p.isInjured?'opacity:.5':''}">
-            ${p.isInjured ? '<span style="font-size:13px">🩹</span>' : ''}
-            <div class="flex-1">
-              <div class="${p.isInjured?'txt-dim':'txt-main'} fw-600" style="font-size:14px;${p.isInjured?'text-decoration:line-through':''}">
-                ${badgePill}${escHtml(p.name)}${p.price?`<span style="font-size:10px;color:var(--warn);margin-left:6px;font-weight:400">${p.price}Cr</span>`:''}
-              </div>
-              <div class="fs-11 txt-dim">🏏 ${p.battingPoints||0} · ⚾ ${p.bowlingPoints||0} · 🧤 ${p.fieldingPoints||0}</div>
-            </div>
-            <span style="color:#7dd3fc;font-weight:700;font-size:15px">${pPts}</span>
-          </div>`;
-      }).join('');
+  const groupKeys = Object.keys(groupMap).sort((a,b) => {
+    if(a==='—') return 1;
+    if(b==='—') return -1;
+    return a.localeCompare(b);
+  });
+
+  groupKeys.forEach(g =>
+    groupMap[g].sort((a,b)=>playerTotalWithCap(b)-playerTotalWithCap(a))
+  );
+
+  detail.innerHTML = groupKeys.map(nat => {
+    const natLabel = nat === '—' ? 'Other / Unknown' : nat;
+
+    const playerRows = groupMap[nat].map(p => {
+      const badge = captainBadge(p.id);
+
+      const badgePill = badge
+        ? `<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;margin-right:5px;${badge==='C'
+            ? 'background:rgba(251,191,36,.2);color:#fbbf24'
+            : 'background:rgba(139,92,246,.2);color:#a78bfa'}">${badge}</span>`
+        : '';
+
+      const pPts = playerTotalWithCap(p);
+
       return `
-        <div style="margin-top:10px">
-          <div style="font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--acc);padding:4px 0 5px;border-bottom:1px solid var(--bdr);margin-bottom:4px">
-            🏏 ${escHtml(natLabel)}
+        <div class="player-row" style="${p.isInjured?'opacity:.5':''}">
+          ${p.isInjured ? '<span style="font-size:13px">🩹</span>' : ''}
+          <div class="flex-1">
+            <div class="${p.isInjured?'txt-dim':'txt-main'} fw-600" style="font-size:14px;${p.isInjured?'text-decoration:line-through':''}">
+              ${badgePill}${escHtml(p.name)}
+              ${p.price?`<span style="font-size:10px;color:var(--warn);margin-left:6px;font-weight:400">${p.price}Cr</span>`:''}
+            </div>
+            <div class="fs-11 txt-dim">
+              🏏 ${p.battingPoints||0} · ⚾ ${p.bowlingPoints||0} · 🧤 ${p.fieldingPoints||0}
+            </div>
           </div>
-          ${playerRows}
+          <span style="color:#7dd3fc;font-weight:700;font-size:15px">${pPts}</span>
         </div>`;
     }).join('');
 
-    let open = false;
-    row.onclick = () => {
-      open = !open;
-      detail.style.display = open ? 'block' : 'none';
-      const arr = document.getElementById('arrow-'+i);
-      if(arr) arr.textContent = open ? '▲' : '▼';
-    };
-    standList.appendChild(row);
-    standList.appendChild(detail);
-  });
+    return `
+      <div style="margin-top:10px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--acc);padding:4px 0 5px;border-bottom:1px solid var(--bdr);margin-bottom:4px">
+          🏏 ${escHtml(natLabel)}
+        </div>
+        ${playerRows}
+      </div>`;
+  }).join('');
+
+  let open = false;
+  row.onclick = () => {
+    open = !open;
+    detail.style.display = open ? 'block' : 'none';
+    const arr = document.getElementById('arrow-'+i);
+    if(arr) arr.textContent = open ? '▲' : '▼';
+  };
+
+  standList.appendChild(row);
+  standList.appendChild(detail);
+});
 }
 
 // ── Matches ───────────────────────────────────────
@@ -1329,8 +1361,63 @@ ${m.status}
   }).join('');
 }
 
-async function showMatchDetail(matchId) {
+function renderFantasyPoints(matchId){
   const t = getTournament();
+  const ptsEl = document.getElementById('md-pane-pts');
+
+  const teamsSorted = (t.teams||[])
+    .map(team=>{
+      const active=(team.players||[]).filter(p=>{
+        const mp=(p.matchPoints||{})[matchId];
+        return mp;
+      });
+
+      const total=active.reduce((s,p)=>{
+        const mp=p.matchPoints[matchId]||{};
+        return s+(mp.batting||0)+(mp.bowling||0)+(mp.fielding||0);
+      },0);
+
+      return {team,active,total};
+    })
+    .filter(x=>x.active.length)
+    .sort((a,b)=>b.total-a.total);
+
+  if(!teamsSorted.length){
+    ptsEl.innerHTML=`<div class="txt-dim ta-center" style="padding:30px">
+      No fantasy points recorded for this match yet.
+    </div>`;
+    return;
+  }
+
+  ptsEl.innerHTML = teamsSorted.map(obj=>{
+    const sorted=[...obj.active].sort((a,b)=>{
+      const ta=a.matchPoints[matchId]||{},tb=b.matchPoints[matchId]||{};
+      return ((tb.batting||0)+(tb.bowling||0)+(tb.fielding||0))-((ta.batting||0)+(ta.bowling||0)+(ta.fielding||0));
+    });
+
+    return `
+      <div class="card mb-14">
+        <div class="lbl txt-acc">${escHtml(obj.team.name)} — ${obj.total} pts</div>
+        ${sorted.map(p=>{
+          const mp=p.matchPoints[matchId]||{};
+          const tot=(mp.batting||0)+(mp.bowling||0)+(mp.fielding||0);
+          return `
+            <div class="flex gap-10" style="padding:8px 0;border-bottom:1px solid var(--bdr)">
+              <div class="flex-1">
+                <div class="fw-600 txt-main">${escHtml(p.name)}</div>
+                <div class="fs-11 txt-dim">🏏 ${mp.batting||0} · 🎳 ${mp.bowling||0} · 🧤 ${mp.fielding||0}</div>
+              </div>
+              <span class="txt-acc fw-700" style="font-size:15px">${tot}</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+}
+
+async function showMatchDetail(matchId) {
+  state.matchDetailOpen = true;
+  const t = getTournament();
+
   const match = (t.matches||[]).find(m=>m.id===matchId);
   if(!match) return;
 
@@ -1358,7 +1445,7 @@ async function showMatchDetail(matchId) {
     </span>`).join('');
 
   el.innerHTML = `
-    <button class="btn btn-ghost mb-20" onclick="renderMatchesList(getTournament())">← Back</button>
+    <button class="btn btn-ghost mb-20" onclick="state.matchDetailOpen=false; renderMatchesList(getTournament())">← Back</button>
     ${teamBanner}
     <div class="fw-800 txt-main" style="font-size:18px;margin-bottom:4px">${escHtml(match.name)}</div>
     ${match.venue?`<div class="txt-dim fs-12" style="margin-bottom:6px">📍 ${escHtml(match.venue)}</div>`:''}
@@ -1381,11 +1468,17 @@ async function showMatchDetail(matchId) {
 
   // Render fantasy points immediately
   const ptsEl = document.getElementById('md-pane-pts');
+
+ptsEl.innerHTML = `
+  <div class="txt-dim ta-center" style="padding:30px">
+    ⏳ Calculating fantasy points...
+  </div>
+`;
   const teamsSorted = (t.teams||[])
     .map(team=>{
       const active=(team.players||[]).filter(p=>{
         const mp=(p.matchPoints||{})[matchId];
-        return mp&&((mp.batting||0)+(mp.bowling||0)+(mp.fielding||0))!==0;
+        return mp;
       });
       const total=active.reduce((s,p)=>{
         const mp=p.matchPoints[matchId]||{};
@@ -1433,7 +1526,7 @@ try {
 try {
   const r = await fetch(`api/get_scorecard.php?match_id=${encodeURIComponent(matchId)}&tournament_id=${t.id}`);
   const j = await r.json();
-  if (j.status === 'success' && j.data) {
+  if (j.status === 'success' && j.data && Object.keys(j.data).length) {
     scorecardData = j.data;
   }
 } catch(e){}
@@ -1441,7 +1534,12 @@ try {
 const scPane = document.getElementById('md-pane-sc');
 
 // 2️⃣ If not in DB → call API
-if(!scorecardData){
+const hasValidScorecard =
+  scorecardData &&
+  ((Array.isArray(scorecardData.scorecard) && scorecardData.scorecard.length) ||
+   (Array.isArray(scorecardData.innings) && scorecardData.innings.length));
+
+if(!hasValidScorecard){
 
   const sc = await cricFetch(`https://api.cricapi.com/v1/match_scorecard?apikey=${API_KEYS.scorecard}&id=${matchId}`);
 
@@ -1462,25 +1560,44 @@ if(!scorecardData){
     });
 
     // ✅ PREVENT DOUBLE SCORING
-    const alreadyScored = (t.teams || []).every(tm =>
-      (tm.players || []).every(p =>
-        p.matchPoints && p.matchPoints[matchId]
-      )
-    );
+    let fresh = getTournament();   // ✅ define FIRST
 
-    if(!alreadyScored){
-      const normalized = normalizeScorecard(sc.data);
-      let fresh = getTournament();
-      let updated = applyMatch(fresh, match, normalized);
-      updateTournament(updated);
-    }
+const alreadyHasPoints = fresh.teams?.some(tm =>
+  tm.players?.some(p => p.matchPoints?.[matchId])
+);
+
+if(!alreadyHasPoints){
+  const normalized = normalizeScorecard(sc.data);
+  let updated = applyMatch(fresh, match, normalized);
+  updateTournament(updated, true);
+  renderLeaderboard(getTournament());
+}
   }
 }
 
 // 3️⃣ Render (ONLY ONCE)
-if(scorecardData && window._mdMatchId === matchId){
+if(scorecardData){
+
   const normalized = normalizeScorecard(scorecardData);
+
+  // 🔥 APPLY POINTS EVEN IF FROM DB
+  const fresh = getTournament();
+  const alreadyScored = fresh.matches?.find(m => m.id === matchId)?.isScored;
+
+  const alreadyHasPoints = fresh.teams?.some(tm =>
+    tm.players?.some(p => p.matchPoints?.[matchId])
+  );
+  
+  if(!alreadyHasPoints){
+    const updated = applyMatch(fresh, match, normalized);
+    updateTournament(updated, true);
+  
+    // 🔥 ADD THIS
+    renderLeaderboard(getTournament());
+  }
+
   renderFullScorecard(matchId, normalized);
+  renderFantasyPoints(matchId);
 }
 
 // 4️⃣ If nothing found
@@ -1511,7 +1628,7 @@ function mdSwitchTab(tab) {
 
 function renderFullScorecard(matchId, data) {
   const el = document.getElementById('md-pane-sc');
-  if(!el || window._mdMatchId!==matchId) return;
+  if(!el) return;
 
   const innings = data.scorecard || data.innings || [];
   if(!innings.length){
@@ -1858,7 +1975,7 @@ async function applyManualPoints(){
 
   // Fallback: apply in JS state
   const updated = {...t, teams: t.teams.map(tm=>({...tm, players: tm.players.map(p=>{
-    if(p.id !== playerId) return p;
+    if(String(p.id) !== String(playerId)) return p;
     const mp = {...(p.matchPoints||{})};
     if(matchId){
       const cur = mp[matchId]||{batting:0,bowling:0,fielding:0};
@@ -1871,8 +1988,12 @@ async function applyManualPoints(){
       fieldingPoints:cat==='fielding' ? (p.fieldingPoints||0)+pts : (p.fieldingPoints||0),
     };
   })}))}; 
-  updateTournament(updated);
-  renderLeaderboard(getTournament());
+  updateTournament(updated, true);
+  if(matchId){
+    renderFantasyPoints(matchId);
+  }
+  
+renderLeaderboard(getTournament());
   if(msgEl){msgEl.innerHTML=`<div class="alert alert-ok">✅ ${pts>0?'+':''}${pts} pts applied (offline mode)</div>`;msgEl.style.display='block';}
 }
 
@@ -1915,11 +2036,11 @@ function applyTournamentAward(){
   if(!playerId) return;
   const bonus = 200;
   const updated = {...t, teams: t.teams.map(tm=>({...tm, players: tm.players.map(p=>{
-    if(p.id!==playerId) return p;
+    if(String(p.id) !== String(playerId)) return p;
     return {...p, totalPoints:(p.totalPoints||0)+bonus};
   })}))};
-  updateTournament(updated);
-  renderLeaderboard(getTournament());
+  updateTournament(updated, true);
+renderLeaderboard(getTournament());
   const labels = {purple:'🟣 Purple Cap',orange:'🟠 Orange Cap',pot:'🏆 Player of Tournament',emerging:'⭐ Emerging Player'};
   const toast=document.createElement('div');
   toast.style.cssText='position:fixed;top:22px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#000;padding:10px 22px;border-radius:12px;font-weight:700;font-size:13px;z-index:9999';
@@ -2666,21 +2787,27 @@ function isSamePlayer(a, b){
   const na = norm(a);
   const nb = norm(b);
 
+  // Exact match
   if(na === nb) return true;
 
-  const la = na.split(' ').pop();
-  const lb = nb.split(' ').pop();
+  const pa = na.split(' ');
+  const pb = nb.split(' ');
 
-  if(la === lb) return true;
+  const la = pa[pa.length-1]; // last name
+  const lb = pb[pb.length-1];
 
-  if(na[0] === nb[0] && la === lb) return true;
+  // Last name + first initial (Virat Kohli vs V Kohli)
+  if(la === lb && na[0] === nb[0]) return true;
 
-  if(na.includes(nb) || nb.includes(na)) return true;
+  // Full last name match ONLY if length > 3
+  if(la === lb && la.length > 3) return true;
 
   return false;
 }
 
 function applyMatch(tournament, matchInfo, scorecard) {
+  const matchTeams = (matchInfo.teamInfo || [])
+  .map(t => norm(t.name || t.shortname || ''));
   const mid = matchInfo.id;
 
   const updatedTeams = (tournament.teams || []).map(team => ({
@@ -2766,17 +2893,29 @@ function applyMatch(tournament, matchInfo, scorecard) {
 
       });
 
+
+      const total = bat + bowl + field;
+
+      if(total === 0){
+        return player;
+      }
+      
       const mp = { batting: bat, bowling: bowl, fielding: field };
 
-      return {
-        ...player,
-        cricketTeam,
-        matchPoints:    { ...(player.matchPoints || {}), [mid]: mp },
-        battingPoints:  (player.battingPoints  || 0) + bat,
-        bowlingPoints:  (player.bowlingPoints  || 0) + bowl,
-        fieldingPoints: (player.fieldingPoints || 0) + field,
-        totalPoints:    (player.totalPoints    || 0) + bat + bowl + field,
-      };
+return {
+  ...player,
+  cricketTeam,
+
+  // ✅ MATCH LEVEL
+  matchPoints: { ...(player.matchPoints || {}), [mid]: mp },
+
+  // ✅ TOTAL LEVEL (VERY IMPORTANT)
+  totalPoints: (player.totalPoints || 0) + total,
+  battingPoints: (player.battingPoints || 0) + bat,
+  bowlingPoints: (player.bowlingPoints || 0) + bowl,
+  fieldingPoints: (player.fieldingPoints || 0) + field
+};
+
     })
   }));
 
@@ -2851,9 +2990,8 @@ function calcBat(runs, balls, fours, sixes, sr, duck, notOut=false) {
   if(sr >= 175) L += 10;
   if(sr >= 200) L += 20;
   if(sr >= 250) L += 20;
-  if(sr == 300 && sr<=350) L += 80;
-  
-  if(sr > 350) L += 100;
+  if(sr >= 300 && sr < 350) L += 80;
+  if(sr >= 350) L += 100;
 
   // M — SR bonus only if 25+ balls faced
   const M = balls >= 25 ? L : 0;
@@ -3003,11 +3141,10 @@ function escId(s){ return String(s||'').replace(/[^a-zA-Z0-9]/g,'_'); }
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-document.getElementById('page-login').classList.add('active');
+state.matchDetailOpen = false;
 
-// On load, attempt to fetch tournaments from server
+// ALWAYS use goPage (never manual class add)
 loadTournamentsFromServer().then(()=>{
-  // render current page if needed
-  if(state.page === 'user-home') renderUserHome();
-  if(state.page === 'admin-home') renderAdminHome();
+  goPage(state.page || 'login');
 });
+
