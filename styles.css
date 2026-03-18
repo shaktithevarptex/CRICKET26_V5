@@ -100,11 +100,11 @@ input,select,button{font-family:inherit}
 
 .sep{height:1px;background:var(--bdr);border:none;margin:0}
 
-.leaderboard-grid{
-  display:grid;
-  grid-template-columns: 1fr 2fr;
-  gap:18px;
-}
+.leaderboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* 🔥 THIS makes standings wider */
+    gap: 16px;
+  }
 
 #top-performers-list{
   max-height: 700px;
@@ -399,3 +399,8 @@ border-color:#ff6b6b;
 }
 /* Responsive */
 @media(max-width:600px){.grid-cards{grid-template-columns:1fr}.wrap{padding:16px}}
+@media (max-width: 768px) {
+    .leaderboard-grid {
+      grid-template-columns: 1fr; /* stack vertically */
+    }
+  }

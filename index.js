@@ -526,10 +526,13 @@ ${(t.matches||[]).length} matches · ${totalPlayers} players
 </div>
 
 ${state.user==='admin' ? `
-<button class="btn btn-danger mt-10"
-onclick="event.stopPropagation();deleteTournament('${t.id}')">
-Delete
-</button>
+  <div style="display:flex">
+    <button class="btn mt-10"
+      onclick="event.stopPropagation();deleteTournament('${t.id}')"
+      style="margin-left:auto;opacity:1;color:red;background:transparent;border:1px solid var(--bdr)">
+      Delete
+    </button>
+  </div>
 ` : ''}
 `;
   return el;
@@ -1069,6 +1072,16 @@ function switchTab(tab) {
   });
 }
 
+function togglePlayerMatches(row) {
+  const box = row.nextElementSibling;
+  if (!box) return;
+
+  const isOpen = box.style.display === 'block';
+  box.style.display = isOpen ? 'none' : 'block';
+
+  const arrow = row.querySelector('span:last-child');
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
 // ── Leaderboard ───────────────────────────────────
 function renderLeaderboard(t) {
   const teams = t.teams||[];
@@ -1156,10 +1169,10 @@ function renderLeaderboard(t) {
           </span>
           <div class="flex-1" style="min-width:0">
             <div class="fw-700 txt-main" style="font-size:14px;display:flex;align-items:center;flex-wrap:wrap">
-              ${badge}${escHtml(p.name)}
+              ${badge}${escHtml(p.name)} &nbsp; ${ownerLine}
             </div>
             ${natLine}
-            ${ownerLine}
+
           </div>
           <div class="ta-right" style="flex-shrink:0">
             <div class="txt-acc fw-800" style="font-size:18px">${pts}</div>
@@ -1171,7 +1184,6 @@ function renderLeaderboard(t) {
     tpBlock.style.display = 'none';
   }
 
-  // Standings
   // Standings
 const standList = document.getElementById('standings-list');
 if(!ranked.length){
@@ -1230,61 +1242,83 @@ ranked.forEach((team,i) => {
   const detail = document.createElement('div');
   detail.style.cssText = 'display:none;padding:0 0 14px 46px';
 
-  const groupMap = {};
-  (team.players||[]).forEach(p => {
-    const nat = p.cricketTeam || p.country || '—';
-    if(!groupMap[nat]) groupMap[nat] = [];
-    groupMap[nat].push(p);
-  });
+  const sortedPlayers = (team.players || [])
+  .sort((a,b) => playerTotalWithCap(b) - playerTotalWithCap(a));
 
-  const groupKeys = Object.keys(groupMap).sort((a,b) => {
-    if(a==='—') return 1;
-    if(b==='—') return -1;
-    return a.localeCompare(b);
-  });
 
-  groupKeys.forEach(g =>
-    groupMap[g].sort((a,b)=>playerTotalWithCap(b)-playerTotalWithCap(a))
-  );
+  detail.innerHTML = sortedPlayers.map(p => {
+  const badge = captainBadge(p.id);
 
-  detail.innerHTML = groupKeys.map(nat => {
-    const natLabel = nat === '—' ? 'Other / Unknown' : nat;
+  const badgePill = badge
+    ? `<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;margin-right:5px;${badge==='C'
+        ? 'background:rgba(251,191,36,.2);color:#fbbf24'
+        : 'background:rgba(139,92,246,.2);color:#a78bfa'}">${badge}</span>`
+    : '';
 
-    const playerRows = groupMap[nat].map(p => {
-      const badge = captainBadge(p.id);
+  const pPts = playerTotalWithCap(p);
 
-      const badgePill = badge
-        ? `<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;margin-right:5px;${badge==='C'
-            ? 'background:rgba(251,191,36,.2);color:#fbbf24'
-            : 'background:rgba(139,92,246,.2);color:#a78bfa'}">${badge}</span>`
-        : '';
+  const matches = t.matches || [];
+  const mp = p.matchPoints || {};
 
-      const pPts = playerTotalWithCap(p);
-
-      return `
-        <div class="player-row" style="${p.isInjured?'opacity:.5':''}">
-          ${p.isInjured ? '<span style="font-size:13px">🩹</span>' : ''}
-          <div class="flex-1">
-            <div class="${p.isInjured?'txt-dim':'txt-main'} fw-600" style="font-size:14px;${p.isInjured?'text-decoration:line-through':''}">
-              ${badgePill}${escHtml(p.name)}
-              ${p.price?`<span style="font-size:10px;color:var(--warn);margin-left:6px;font-weight:400">${p.price}Cr</span>`:''}
-            </div>
-            <div class="fs-11 txt-dim">
-              🏏 ${p.battingPoints||0} · ⚾ ${p.bowlingPoints||0} · 🧤 ${p.fieldingPoints||0}
-            </div>
-          </div>
-          <span style="color:#7dd3fc;font-weight:700;font-size:15px">${pPts}</span>
-        </div>`;
-    }).join('');
+  const matchRows = matches.map(m => {
+    const pts = mp[m.id] || {};
+    const total = (pts.batting||0)+(pts.bowling||0)+(pts.fielding||0);
+    if(total === 0) return '';
 
     return `
-      <div style="margin-top:10px">
-        <div style="font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--acc);padding:4px 0 5px;border-bottom:1px solid var(--bdr);margin-bottom:4px">
-          🏏 ${escHtml(natLabel)}
-        </div>
-        ${playerRows}
-      </div>`;
+      <tr style="border-bottom:1px solid var(--bdr)">
+        <td style="padding:6px 0;font-size:12px;color:#000">
+          ${escHtml(m.name || '')}
+        </td>
+        <td style="padding:6px 0;text-align:right;font-size:12px;font-weight:700;color:#000">
+          +${total}
+        </td>
+      </tr>
+    `;
   }).join('');
+
+  return `
+    <div class="player-row" onclick="event.stopPropagation(); togglePlayerMatches(this)"
+         style="cursor:pointer;${p.isInjured?'opacity:.5':''}">
+
+      ${p.isInjured ? '<span style="font-size:13px">🩹</span>' : ''}
+
+      <div class="flex-1">
+        <div class="${p.isInjured?'txt-dim':'txt-main'} fw-600"
+             style="font-size:14px;${p.isInjured?'text-decoration:line-through':''}">
+          ${badgePill}${escHtml(p.name)}
+          <span style="margin-left:6px;font-size:10px;color:#9ca3af">▼</span>
+        </div>
+      </div>
+
+      <span style="color:#7dd3fc;font-weight:700;font-size:15px">${pPts}</span>
+    </div>
+
+    <div class="player-matches" style="display:none;padding:10px">
+
+      <div style="font-size:10px;color:black;margin-bottom:6px">
+        MATCH-BY-MATCH POINTS
+      </div>
+
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="font-size:10px;color:#000;text-transform:uppercase">
+            <th style="text-align:left">Fixture</th>
+            <th style="text-align:right">Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${matchRows || `
+            <tr>
+              <td colspan="2" style="color:#000;font-size:11px">No points yet</td>
+            </tr>
+          `}
+        </tbody>
+      </table>
+
+    </div>
+  `;
+}).join('');
 
   let open = false;
   row.onclick = () => {
@@ -1361,6 +1395,14 @@ ${m.status}
   }).join('');
 }
 
+function toggleStats(row) {
+  const stats = row.nextElementSibling;
+  if (!stats) return;
+
+  const isOpen = stats.style.display === 'block';
+  stats.style.display = isOpen ? 'none' : 'block';
+}
+
 function renderFantasyPoints(matchId){
   const t = getTournament();
   const ptsEl = document.getElementById('md-pane-pts');
@@ -1396,21 +1438,51 @@ function renderFantasyPoints(matchId){
     });
 
     return `
-      <div class="card mb-14">
-        <div class="lbl txt-acc">${escHtml(obj.team.name)} — ${obj.total} pts</div>
-        ${sorted.map(p=>{
-          const mp=p.matchPoints[matchId]||{};
-          const tot=(mp.batting||0)+(mp.bowling||0)+(mp.fielding||0);
-          return `
-            <div class="flex gap-10" style="padding:8px 0;border-bottom:1px solid var(--bdr)">
-              <div class="flex-1">
-                <div class="fw-600 txt-main">${escHtml(p.name)}</div>
-                <div class="fs-11 txt-dim">🏏 ${mp.batting||0} · 🎳 ${mp.bowling||0} · 🧤 ${mp.fielding||0}</div>
+    <div class="card mb-14">
+      <div class="lbl txt-acc">${escHtml(obj.team.name)} — ${obj.total} pts</div>
+  
+      ${sorted.map(p => {
+        const mp = p.matchPoints[matchId] || {};
+        const tot = (mp.batting || 0) + (mp.bowling || 0) + (mp.fielding || 0);
+  
+        return `
+          <!-- PLAYER ROW -->
+          <div class="flex gap-10 player-row" 
+               onclick="toggleStats(this)"
+               style="padding:8px 0;border-bottom:1px solid var(--bdr);cursor:pointer">
+  
+            <div class="flex-1">
+              <div class="fw-600 txt-main">
+                ${escHtml(p.name)}
+                <span style="margin-left:6px;font-size:10px;color:#9ca3af">▼</span>
               </div>
-              <span class="txt-acc fw-700" style="font-size:15px">${tot}</span>
-            </div>`;
-        }).join('')}
-      </div>`;
+            </div>
+  
+            <span class="txt-acc fw-700" style="font-size:15px">${tot}</span>
+          </div>
+  
+          <!-- DROPDOWN TABLE -->
+          <div class="player-stats" style="display:none;padding:6px 10px;border-bottom:1px solid var(--bdr)">
+            <table style="width:100%;font-size:11px;color:black">
+              <tr>
+                <td>🏏 Batting</td>
+                <td style="text-align:right">${mp.batting || 0}</td>
+              </tr>
+              <tr>
+                <td>🎳 Bowling</td>
+                <td style="text-align:right">${mp.bowling || 0}</td>
+              </tr>
+              <tr>
+                <td>🧤 Fielding</td>
+                <td style="text-align:right">${mp.fielding || 0}</td>
+              </tr>
+            </table>
+          </div>
+        `;
+      }).join('')}
+  
+    </div>
+  `;
   }).join('');
 }
 
@@ -1648,9 +1720,7 @@ function renderFullScorecard(matchId, data) {
 
     // 🎨 Runs color logic
     const getRunColor = (r) =>
-      r >= 50 ? '#16a34a' :   // green
-      r == 0 ? 'red' :
-      '#111';
+      r = '#111';
 
     const batRows = batting.map(b=>{
       const name  = b.batsman?.name || b.name || '—';
@@ -1687,10 +1757,7 @@ function renderFullScorecard(matchId, data) {
       const isF  = fantasyNames.has(norm(name));
       const wkts = bw.w ?? 0;
 
-      const wColor =
-        wkts >= 3 ? '#16a34a' :
-        wkts >= 1 ? '#2563eb' :
-        '#111';
+      const wColor = wkts ? '#111' : '#111';
 
       return `
         <tr style="border-bottom:1px solid #eee;${isF?'background:#fff7ed':''}">
